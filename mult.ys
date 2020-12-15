@@ -1,0 +1,152 @@
+.pos 0x000
+
+    irmovl Array, %esi #esi points at the Array
+    irmovl Stack, %esp #esp points at the Stack
+    irmovl Stack, %ebp
+
+    irmovl $9, %ebx #declare fac1 here
+    irmovl $1, %ecx #declare fac2 here
+    
+    jmp Main
+
+
+Bit_Mult:
+
+    pushl %ebp
+    rrmovl %esp, %ebp
+
+    # set up local variables
+    irmovl $0, %eax     # sum = 0
+
+    mrmovl 8(%ebp), %edx # mult = i
+    irmovl $1, %edi     # bit = 1
+    
+Bit_Mult_Loop:
+
+    # while (bit <= j) -> jump if bit - j < 0 -> don't jump if bit - j > 0
+    rrmovl %edi, %ebx # set ebx to bit 
+    mrmovl 12(%ebp), %ecx # set ecx to j
+    subl %ecx, %ebx
+    jg Bit_Mult_End
+
+    # if (bit & j)
+    rrmovl %edi, %ebx # set ebx to bit 
+    mrmovl 12(%ebp), %ecx # set ecx to j
+    andl %ecx, %ebx
+    je Bit_Mult_Incr # if (bit & j) == 0, then jump
+    addl %edx, %eax # sum = sum + mult
+
+Bit_Mult_Incr:
+
+    addl %edi, %edi # bit += bit
+    addl %edx, %edx # mult += mult
+    jmp Bit_Mult_Loop
+
+Bit_Mult_End:
+
+    popl %ebp
+    ret
+
+Rec_Mult:
+
+    pushl %ebp
+    rrmovl %esp, %ebp
+
+    irmovl $0, %eax # sum = 0
+
+    mrmovl 12(%ebp), %ebx # set ebx to j
+    irmovl $1, %edx 
+    subl %edx, %ebx # j - 1
+    pushl %ebx
+
+    mrmovl 8(%ebp), %ecx # set ecx to i
+    pushl %ecx
+
+    mrmovl 12(%ebp), %edx # set edx to j
+    irmovl $1, %ecx 
+    subl %ecx, %edx # if j - 1 
+    je Rec_Base
+
+    call Rec_Mult
+    popl %ecx # set ecx to i
+    addl %ecx, %eax # sum += i
+    popl %edx # j to the trash
+    popl %ebp # reset stack frame
+    ret
+    
+Rec_Base:
+    
+    popl %ecx # set ecx to i
+    addl %ecx, %eax # sum += i
+    popl %edx # j to the trash
+    popl %ebp # reset stack frame
+    ret
+
+i_loop:
+
+    irmovl $-1, %ebx # ebx as the buffer value = ***...*
+    rmmovl %ebx, (%esi) # insert the buffer into the array
+    irmovl $4, %ecx # use ecx as array index incrementer
+    addl %ecx, %esi # increment the array index
+
+    # if i > 12 (i - 12 > 0), then jump end_loop
+    mrmovl -8(%ebp), %ebx # set ebx to i
+    irmovl $12, %ecx # set ecx to 12
+    subl %ecx, %ebx # i - 12
+    jg End_Loop
+
+
+j_loop:
+    # if j > 7
+    mrmovl -4(%ebp), %ebx # set ebx to j
+    irmovl $7, %ecx # set ecx to 7
+    subl %ecx, %ebx # j - 7
+    jg i_loop_incr
+
+    call Bit_Mult
+    rmmovl %eax, (%esi) # puts the sum into the array
+    irmovl $4, %ecx # use ecx as array index incrementer
+    addl %ecx, %esi # increment the array index
+
+    call Rec_Mult
+    rmmovl %eax, (%esi) # puts the sum into the array
+    irmovl $4, %ecx # use ecx as array index incrementer
+    addl %ecx, %esi # increment the array index
+
+    mrmovl -4(%ebp), %ebx # ebx set to j
+    irmovl $2, %ecx # ecx as incrementer
+    addl %ecx, %ebx # j += 2
+    rmmovl %ebx, -4(%ebp) # update j
+
+    jmp j_loop
+
+i_loop_incr: # increments i when j looping ends and goes back to the i loop
+    popl %ebx # set ebx to i
+    irmovl $1, %ecx # set ecx as the loop incrementer
+    addl %ecx, %ebx # i++
+    pushl %ebx # update i
+
+    # set j back to 1
+    mrmovl -4(%ebp), %ebx # ebx set to j
+    irmovl $1, %ebx # update j back to 1
+    rmmovl %ebx, -4(%ebp)
+    jmp i_loop
+
+Main:
+
+    pushl %ecx #store arg2(j) in the stack
+    pushl %ebx #store arg1(i) in the stack
+
+    jmp i_loop
+    
+End_Loop:
+
+    popl %ecx
+    popl %ecx
+
+.pos 0x200
+Array:
+
+.pos 0x400
+Stack:
+
